@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs" defer></script>
+</head>
+<body class="bg-gray-100" x-data="projectManager()">
+    <div class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-white shadow">
+            <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+                <h1 class="text-3xl font-bold text-gray-900">Project Manager</h1>
+                <button @click="showCreateModal = true" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">
+                    New Project
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+            <!-- Project Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <template x-for="project in projects" :key="project.id">
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <a :href="'/projects/' + project.id + '/chat/'" class="hover:text-indigo-600">
+                                    <h2 x-text="project.name" class="text-xl font-semibold text-gray-900"></h2>
+                                </a>
+                                <p x-text="project.description" class="text-gray-600 mt-1"></p>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button @click="editProject(project)" class="text-blue-600 hover:text-blue-800">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                    </svg>
+                                </button>
+                                <button @click="deleteProject(project.id)" class="text-red-600 hover:text-red-800">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="border-t pt-4">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-medium">Files</h3>
+                                <button @click="openFileUpload(project.id)" class="text-indigo-600 hover:text-indigo-800">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                    </svg>
+                                </button>
+                            </div>
+                            <div class="space-y-2">
+                                <template x-for="file in project.files" :key="file.id">
+                                    <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                        <div class="flex items-center space-x-2">
+                                            <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                                            </svg>
+                                            <span x-text="file.name" class="text-sm"></span>
+                                        </div>
+                                        <button @click="deleteFile(file.id, project.id)" class="text-red-600 hover:text-red-800">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </main>
+
+        <!-- Create/Edit Project Modal -->
+        <div x-show="showCreateModal" class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center">
+            <div class="bg-white rounded-lg p-6 w-full max-w-md">
+                <h2 class="text-xl font-semibold mb-4" x-text="editingProject ? 'Edit Project' : 'Create Project'"></h2>
+                <form @submit.prevent="saveProject">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Name</label>
+                            <input type="text" x-model="projectForm.name" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Description</label>
+                            <textarea x-model="projectForm.description" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
+                        </div>
+                    </div>
+                    <div class="mt-6 flex justify-end space-x-3">
+                        <button type="button" @click="showCreateModal = false" class="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-50">
+                            Cancel
+                        </button>
+                        <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                            Save
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- File Upload Modal -->
+        <div x-show="showFileModal" class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center">
+            <div class="bg-white rounded-lg p-6 w-full max-w-md">
+                <h2 class="text-xl font-semibold mb-4">Upload PDF File</h2>
+                <form @submit.prevent="uploadFile">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">PDF File</label>
+                            <input type="file" accept=".pdf" @change="handleFileSelect" class="mt-1 block w-full" required>
+                            <p class="mt-1 text-sm text-gray-500">Maximum file size: 10MB</p>
+                            <!-- File Preview -->
+                            <template x-if="fileForm.file">
+                                <div class="mt-2 p-3 bg-gray-50 rounded-md">
+                                    <div class="flex items-center">
+                                        <svg class="w-8 h-8 text-red-500" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 13.5v-7c0-.41.47-.65.8-.4l4.67 3.5c.27.2.27.6 0 .8l-4.67 3.5c-.33.25-.8.01-.8-.4z"/>
+                                        </svg>
+                                        <div class="ml-3">
+                                            <p class="text-sm font-medium text-gray-900" x-text="fileForm.file.name"></p>
+                                            <p class="text-sm text-gray-500" x-text="formatFileSize(fileForm.file.size)"></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                            <!-- Error Message -->
+                            <div x-show="fileError" class="mt-2 text-sm text-red-600" x-text="fileError"></div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Name (optional)</label>
+                            <input type="text" x-model="fileForm.name" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        </div>
+                    </div>
+                    <div class="mt-6 flex justify-end space-x-3">
+                        <button type="button" @click="closeFileModal" class="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-50">
+                            Cancel
+                        </button>
+                        <button type="submit" :disabled="!isValidFile" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                            Upload
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function projectManager() {
+            return {
+                projects: [],
+                showCreateModal: false,
+                showFileModal: false,
+                editingProject: null,
+                selectedProjectId: null,
+                fileError: null,
+                projectForm: {
+                    name: '',
+                    description: ''
+                },
+                fileForm: {
+                    file: null,
+                    name: ''
+                },
+
+                init() {
+                    this.fetchProjects();
+                },
+
+                async fetchProjects() {
+                    try {
+                        const response = await fetch('/', {
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest'
+                            }
+                        });
+                        const data = await response.json();
+                        this.projects = data.projects;
+                    } catch (error) {
+                        console.error('Error fetching projects:', error);
+                    }
+                },
+
+                async saveProject() {
+                    const url = this.editingProject 
+                        ? `/projects/${this.editingProject.id}/update/`
+                        : '/projects/create/';
+
+                    try {
+                        const response = await fetch(url, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': getCookie('csrftoken')
+                            },
+                            body: JSON.stringify(this.projectForm)
+                        });
+
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (this.editingProject) {
+                                this.projects = this.projects.map(p => 
+                                    p.id === data.id ? data : p
+                                );
+                            } else {
+                                this.projects.push(data);
+                            }
+                            this.showCreateModal = false;
+                            this.resetForm();
+                        }
+                    } catch (error) {
+                        console.error('Error saving project:', error);
+                    }
+                },
+
+                editProject(project) {
+                    this.editingProject = project;
+                    this.projectForm = {
+                        name: project.name,
+                        description: project.description
+                    };
+                    this.showCreateModal = true;
+                },
+
+                async deleteProject(projectId) {
+                    if (!confirm('Are you sure you want to delete this project?')) return;
+
+                    try {
+                        const response = await fetch(`/projects/${projectId}/delete/`, {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRFToken': getCookie('csrftoken')
+                            }
+                        });
+
+                        if (response.ok) {
+                            this.projects = this.projects.filter(p => p.id !== projectId);
+                        }
+                    } catch (error) {
+                        console.error('Error deleting project:', error);
+                    }
+                },
+
+                openFileUpload(projectId) {
+                    this.selectedProjectId = projectId;
+                    this.showFileModal = true;
+                },
+
+                handleFileSelect(event) {
+                    const file = event.target.files[0];
+                    this.fileError = null;
+                    
+                    if (file) {
+                        // Validate file type
+                        if (!file.type.includes('pdf')) {
+                            this.fileError = 'Only PDF files are allowed';
+                            event.target.value = ''; // Clear the file input
+                            return;
+                        }
+                        
+                        // Validate file size (10MB)
+                        if (file.size > 10 * 1024 * 1024) {
+                            this.fileError = 'File size must not exceed 10MB';
+                            event.target.value = '';
+                            return;
+                        }
+
+                        this.fileForm.file = file;
+                        if (!this.fileForm.name) {
+                            this.fileForm.name = file.name.replace(/\.pdf$/i, '');
+                        }
+                    }
+                },
+
+                formatFileSize(bytes) {
+                    if (bytes === 0) return '0 Bytes';
+                    const k = 1024;
+                    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                    const i = Math.floor(Math.log(bytes) / Math.log(k));
+                    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+                },
+
+                get isValidFile() {
+                    return this.fileForm.file && !this.fileError;
+                },
+
+                closeFileModal() {
+                    this.showFileModal = false;
+                    this.fileForm = {
+                        file: null,
+                        name: ''
+                    };
+                    this.fileError = null;
+                },
+
+                async uploadFile() {
+                    const formData = new FormData();
+                    formData.append('file', this.fileForm.file);
+                    formData.append('name', this.fileForm.name);
+
+                    try {
+                        const response = await fetch(`/projects/${this.selectedProjectId}/upload/`, {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRFToken': getCookie('csrftoken')
+                            },
+                            body: formData
+                        });
+
+                        if (response.ok) {
+                            const data = await response.json();
+                            const project = this.projects.find(p => p.id === this.selectedProjectId);
+                            if (project) {
+                                project.files.push(data);
+                            }
+                            this.showFileModal = false;
+                            this.resetFileForm();
+                        }
+                    } catch (error) {
+                        console.error('Error uploading file:', error);
+                    }
+                },
+
+                async deleteFile(fileId, projectId) {
+                    if (!confirm('Are you sure you want to delete this file?')) return;
+
+                    try {
+                        const response = await fetch(`/files/${fileId}/delete/`, {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRFToken': getCookie('csrftoken')
+                            }
+                        });
+
+                        if (response.ok) {
+                            const project = this.projects.find(p => p.id === projectId);
+                            if (project) {
+                                project.files = project.files.filter(f => f.id !== fileId);
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error deleting file:', error);
+                    }
+                },
+
+                resetForm() {
+                    this.projectForm = {
+                        name: '',
+                        description: ''
+                    };
+                    this.editingProject = null;
+                },
+
+                resetFileForm() {
+                    this.fileForm = {
+                        file: null,
+                        name: ''
+                    };
+                    this.selectedProjectId = null;
+                }
+            };
+        }
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    </script>
+</body>
+</html>

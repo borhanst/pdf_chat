@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ project.name }} - Chat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs" defer></script>
+</head>
+<body class="bg-gray-100" x-data="chatManager()">
+    <div class="min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="bg-white shadow">
+            <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">{{ project.name }}</h1>
+                    <p class="text-gray-600 mt-1">{{ project.description }}</p>
+                </div>
+                <a href="/" class="text-gray-600 hover:text-gray-900">
+                    Back to Projects
+                </a>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-1 max-w-7xl w-full mx-auto py-6 sm:px-6 lg:px-8 flex gap-4">
+            <!-- File List -->
+            <div class="w-64 bg-white shadow rounded-lg p-4">
+                <h2 class="font-semibold text-gray-900 mb-4">PDF Files</h2>
+                <div class="space-y-2">
+                    {% for file in files %}
+                    <button @click="selectFile('{{ file.id }}')" 
+                            class="w-full text-left p-2 rounded hover:bg-gray-50"
+                            :class="{'bg-indigo-50 text-indigo-700': selectedFile === '{{ file.id }}'}">
+                        {{ file.name }}
+                    </button>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Chat Area -->
+            <div class="flex-1 bg-white shadow rounded-lg flex flex-col w-full overflow-y-scroll">
+                <!-- Messages -->
+                <div class="flex-1 p-4 space-y-4 overflow-y-auto" id="messages">
+                    <template x-for="message in messages" :key="message.id">
+                        <div :class="{'flex justify-end': message.isUser}">
+                            <div :class="{
+                                'bg-indigo-100 rounded-lg p-3 max-w-lg': message.isUser,
+                                'bg-gray-100 rounded-lg p-3 max-w-lg': !message.isUser
+                            }">
+                                <p class="text-gray-900" x-text="message.text"></p>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Input Area -->
+                <div class="border-t p-4">
+                    <form @submit.prevent="sendMessage" class="flex gap-2">
+                        <input type="text" 
+                               x-model="newMessage" 
+                               class="flex-1 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                               placeholder="Ask a question about the PDF...">
+                        <button type="submit" 
+                                class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700"
+                                :disabled="!newMessage.trim()">
+                            Send
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function chatManager() {
+            return {
+                selectedFile: null,
+                messages: [],
+                newMessage: '',
+                projectID: "{{project.id}}",
+                chatHistoryUrl:"{% url 'get_chat_history' project.id %}",
+
+                init () {
+                    this.fetchChatHistory()
+                    console.log("chat history", this.messages)
+                    
+                },
+
+                async fetchChatHistory(){
+                    try{
+
+                        const response = await fetch(this.chatHistoryUrl, {
+                            method: 'GET',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': getCookie('csrftoken'),
+                                'X-Requested-With': 'XMLHttpRequest'
+                            
+                            }
+                        })
+                        if(response.ok){
+                            const data = await response.json()
+                            data.chats.map(message =>{
+                                this.messages.push(
+                                    {
+                                        id: Math.random(),
+                                        text: message.message,
+                                        isUser: true
+                                    },
+                                    {
+                                        id: Math.random(),
+                                        text: message.response,
+                                        isUser: false
+                                    }
+                                )
+                            })
+                        }
+                    }
+                    catch (error){
+                        console.error('Error fetching chat history:', error);
+                    }
+                },
+
+                selectFile(fileId) {
+                    this.selectedFile = fileId;
+                    this.messages = []; // Clear messages when switching files
+                },
+
+                async sendMessage() {
+                    if (!this.newMessage.trim()) return;
+
+                    const message = {
+                        id: Date.now(),
+                        text: this.newMessage,
+                        isUser: true
+                    };
+
+                    this.messages.push(message);
+                    const userMessage = this.newMessage;
+                    this.newMessage = '';
+
+                    try {
+                        const response = await fetch('/chat/send/', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': getCookie('csrftoken')
+                            },
+                            body: JSON.stringify({
+                                project_id: this.projectID,
+                                message: userMessage
+                            })
+                        });
+
+                        if (response.ok) {
+                            const data = await response.json();
+                            this.messages.push({
+                                id: Date.now(),
+                                text: data.response,
+                                isUser: false
+                            });
+                        }
+                    } catch (error) {
+                        console.error('Error sending message:', error);
+                    }
+
+                    // Scroll to bottom
+                    setTimeout(() => {
+                        const messages = document.getElementById('messages');
+                        messages.scrollTop = messages.scrollHeight;
+                    }, 100);
+                }
+            };
+        }
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    </script>
+</body>
+</html>

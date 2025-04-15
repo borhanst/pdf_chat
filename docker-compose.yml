@@ -1,0 +1,72 @@
+services:
+  web:
+    build: .
+    container_name: django_application
+    ports:
+      - 8000:8000
+    depends_on:
+      - database
+      - chroma_db
+    command: >
+      sh -c "
+        uv run manage.py makemigrations &&
+        uv run manage.py migrate &&
+        uv run manage.py runserver 0.0.0.0:8000
+      "
+    environment:
+      - POSTGRES_DB=pdf_chat
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_HOST=database
+      - POSTGRES_PORT=5432
+    volumes:
+      - .:/app                   # Mount local project to /app (syncs code changes)
+
+  database:
+    image: pgvector/pgvector:pg17
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_DB=pdf_chat
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    container_name: vector_database
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin_container
+    restart: always
+    ports:
+      - "5050:80"  # Access pgAdmin at http://localhost:5050
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - database
+  
+  chroma_db:
+    image: chromadb/chroma
+    volumes:
+      - chroma_data:/data
+    ports:
+      - "8080:8080"
+    # networks:
+    #   - internal
+    # environment:
+    #   - CHROMA_OPEN_TELEMETRY__ENDPOINT=http://otel-collector:4317/
+    #   - CHROMA_OPEN_TELEMETRY__SERVICE_NAME=chroma
+    # depends_on:
+    #   - otel-collector
+    #   - zipkin
+
+
+volumes:
+  postgres_data:
+  pgadmin_data:
+  chroma_data:
+
